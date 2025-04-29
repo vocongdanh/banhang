@@ -1,6 +1,9 @@
 # Next.js build output
 /.next/
 /out/
+next-build-id
+next.config.*.js
+next-i18next.config.*.js
 
 # Dependencies
 /node_modules/
@@ -13,6 +16,7 @@
 
 # Production
 /build/
+/dist/
 
 # Misc
 .DS_Store
@@ -45,7 +49,6 @@ next-env.d.ts
 *~
 
 # OS specific
-.DS_Store
 Thumbs.db
 
 # Logs
@@ -54,4 +57,5 @@ logs
 
 # Cache
 .eslintcache
-.cache/ 
+.cache/
+.swc/ 
