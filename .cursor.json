@@ -1,0 +1,114 @@
+{
+    "project": {
+      "name": "Phân Tích Bán Hàng & AI Agent cho Bán Hàng",
+      "description": "Hệ thống phân tích dữ liệu bán hàng tích hợp AI với Vector Store",
+      "version": "1.0.0"
+    },
+    "architecture": {
+      "backend": {
+        "framework": "Laravel 12",
+        "language": "PHP 8.2",
+        "database": "MySQL",
+        "apiPort": 8001,
+        "keyComponents": [
+          {
+            "name": "VectorStoreService",
+            "path": "backend/app/Services/VectorStoreService.php",
+            "description": "Dịch vụ tích hợp với OpenAI Vector Store API"
+          },
+          {
+            "name": "ImportController",
+            "path": "backend/app/Http/Controllers/ImportController.php",
+            "description": "Xử lý import dữ liệu từ các file"
+          },
+          {
+            "name": "FileController",
+            "path": "backend/app/Http/Controllers/FileController.php",
+            "description": "Quản lý file upload và download"
+          }
+        ]
+      },
+      "frontend": {
+        "framework": "Next.js 14",
+        "language": "TypeScript",
+        "architecture": "App Router",
+        "port": 3000,
+        "keyComponents": [
+          {
+            "name": "DataImport",
+            "path": "frontend/components/data/data-import.tsx",
+            "description": "Component để import dữ liệu"
+          },
+          {
+            "name": "FileUploadForm",
+            "path": "frontend/components/upload/file-upload-form.tsx",
+            "description": "Form upload file"
+          },
+          {
+            "name": "FileList",
+            "path": "frontend/components/upload/file-list.tsx",
+            "description": "Hiển thị danh sách file đã upload"
+          }
+        ]
+      }
+    },
+    "features": [
+      "Đăng nhập/xác thực người dùng",
+      "Quản lý sản phẩm",
+      "Quản lý đơn hàng",
+      "Import dữ liệu từ nhiều định dạng file",
+      "Tìm kiếm AI với Vector Store",
+      "Upload file nhiều định dạng"
+    ],
+    "fileSupport": {
+      "documents": [".docx", ".pdf", ".txt", ".rtf"],
+      "spreadsheets": [".xlsx", ".xls", ".csv"],
+      "presentations": [".pptx", ".ppt"]
+    },
+    "apiEndpoints": [
+      {
+        "path": "/api/login",
+        "method": "POST",
+        "description": "Đăng nhập"
+      },
+      {
+        "path": "/api/logout",
+        "method": "POST",
+        "description": "Đăng xuất"
+      },
+      {
+        "path": "/api/user",
+        "method": "GET",
+        "description": "Lấy thông tin người dùng hiện tại"
+      },
+      {
+        "path": "/api/import",
+        "method": "POST",
+        "description": "Import dữ liệu từ file"
+      },
+      {
+        "path": "/api/upload",
+        "method": "POST",
+        "description": "Upload file"
+      },
+      {
+        "path": "/api/files",
+        "method": "GET",
+        "description": "Lấy danh sách file đã upload"
+      }
+    ],
+    "conventions": {
+      "frontend": {
+        "components": "frontend/components/",
+        "pages": "frontend/app/",
+        "api": "frontend/app/api/",
+        "hooks": "frontend/hooks/"
+      },
+      "backend": {
+        "controllers": "backend/app/Http/Controllers/",
+        "models": "backend/app/Models/",
+        "services": "backend/app/Services/",
+        "routes": "backend/routes/"
+      }
+    }
+  }
