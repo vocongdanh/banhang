@@ -60,6 +60,10 @@ services:
     command: sh -c "npm run build && npm start"
     networks:
       - banhang_test_network
+    environment:
+      - NEXT_PUBLIC_API_URL=https://test.banhang.ai/api
+      - NEXT_PUBLIC_BACKEND_URL=https://test.banhang.ai
+      - NEXT_PUBLIC_APP_ENV=testing
 
   # Python AI Service
   python-service:
