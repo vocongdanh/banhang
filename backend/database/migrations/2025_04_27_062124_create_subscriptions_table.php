@@ -15,8 +15,8 @@ return new class extends Migration
         $table->id();
         $table->foreignId('business_id')->constrained()->onDelete('cascade');
         $table->foreignId('subscription_plan_id')->constrained();
-        $table->timestamp('start_date');
-        $table->timestamp('end_date');
+        $table->timestamp('start_date')->nullable();
+        $table->timestamp('end_date')->nullable();
         $table->string('status')->default('active'); // active, expired, cancelled
         $table->timestamps();
     });
