@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class AiAgent extends Model
+class AIAgent extends Model
 {
     use HasFactory;
 
@@ -22,6 +22,7 @@ class AiAgent extends Model
         'personality',
         'system_prompt',
         'business_id',
+        'is_public',
         'status',
         'access_role',
         'max_context_length',
