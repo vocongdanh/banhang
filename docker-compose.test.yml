@@ -61,8 +61,8 @@ services:
     networks:
       - banhang_test_network
     environment:
-      - NEXT_PUBLIC_API_URL=https://test.banhang.ai:8001/api
-      - NEXT_PUBLIC_BACKEND_URL=https://test.banhang.ai:8001
+      - NEXT_PUBLIC_API_URL=http://test.banhang.ai:8001/api
+      - NEXT_PUBLIC_BACKEND_URL=http://test.banhang.ai:8001
       - NEXT_PUBLIC_APP_ENV=testing
 
   # Python AI Service
