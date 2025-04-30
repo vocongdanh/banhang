@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\AIAgent;
-use App\Models\AIConversation;
+use App\Models\AiAgent;
+use App\Models\AiConversation;
 use App\Models\AiMessage;
 use App\Models\Business;
 use App\Models\User;
