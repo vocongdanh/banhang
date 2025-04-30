@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AIAgent;
 use App\Models\AIConversation;
-use App\Models\AIMessage;
+use App\Models\AiMessage;
 use App\Models\Business;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -49,7 +49,7 @@ class AIConversationController extends Controller
         }
 
         // Get conversations for this user and business
-        $conversations = AIConversation::with(['aiAgent'])
+        $conversations = AiConversation::with(['aiAgent'])
             ->where('user_id', $userId)
             ->where('business_id', $businessId)
             ->orderBy('last_message_at', 'desc')
@@ -57,7 +57,7 @@ class AIConversationController extends Controller
 
         // Get last message for each conversation
         foreach ($conversations as $conversation) {
-            $lastMessage = AIMessage::where('ai_conversation_id', $conversation->id)
+            $lastMessage = AiMessage::where('ai_conversation_id', $conversation->id)
                 ->orderBy('created_at', 'desc')
                 ->first();
             
@@ -123,7 +123,7 @@ class AIConversationController extends Controller
         // Create the conversation
         $title = $request->input('title') ?: 'Cuộc trò chuyện với ' . $agent->name;
         
-        $conversation = AIConversation::create([
+        $conversation = AiConversation::create([
             'id' => (string) Str::uuid(),
             'title' => $title,
             'ai_agent_id' => $request->input('ai_agent_id'),
@@ -134,7 +134,7 @@ class AIConversationController extends Controller
 
         // If initial message is provided, create the message
         if ($request->has('initial_message') && $request->input('initial_message')) {
-            $message = AIMessage::create([
+            $message = AiMessage::create([
                 'ai_conversation_id' => $conversation->id,
                 'user_id' => $userId,
                 'role' => 'user',
@@ -177,7 +177,7 @@ class AIConversationController extends Controller
             );
 
             // Create AI message
-            $aiMessage = AIMessage::create([
+            $aiMessage = AiMessage::create([
                 'ai_conversation_id' => $conversation->id,
                 'user_id' => null,
                 'role' => 'assistant',
@@ -212,7 +212,7 @@ class AIConversationController extends Controller
     {
         $userId = Auth::id();
         
-        $conversation = AIConversation::with(['aiAgent'])
+        $conversation = AiConversation::with(['aiAgent'])
             ->where('id', $id)
             ->where('user_id', $userId)
             ->first();
@@ -237,7 +237,7 @@ class AIConversationController extends Controller
         }
 
         // Get messages for this conversation
-        $messages = AIMessage::where('ai_conversation_id', $id)
+        $messages = AiMessage::where('ai_conversation_id', $id)
             ->orderBy('created_at', 'asc')
             ->get();
 
@@ -266,7 +266,7 @@ class AIConversationController extends Controller
 
         $userId = Auth::id();
         
-        $conversation = AIConversation::where('id', $id)
+        $conversation = AiConversation::where('id', $id)
             ->where('user_id', $userId)
             ->first();
         
@@ -308,7 +308,7 @@ class AIConversationController extends Controller
     {
         $userId = Auth::id();
         
-        $conversation = AIConversation::where('id', $id)
+        $conversation = AiConversation::where('id', $id)
             ->where('user_id', $userId)
             ->first();
         
@@ -332,7 +332,7 @@ class AIConversationController extends Controller
         }
 
         // Delete associated messages first
-        AIMessage::where('ai_conversation_id', $id)->delete();
+        AiMessage::where('ai_conversation_id', $id)->delete();
         
         // Delete the conversation
         $conversation->delete();

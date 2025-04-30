@@ -14,7 +14,7 @@ use App\Services\AI\AIServiceFactory;
 use Illuminate\Support\Facades\Cache;
 use GuzzleHttp\Client;
 
-class AIMessageController extends Controller
+class AiMessageController extends Controller
 {
     protected $vectorStoreService;
 
