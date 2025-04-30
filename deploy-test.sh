@@ -30,15 +30,24 @@ echo "Setting up environment files..."
 cp env.test backend/.env
 cp env.frontend.test frontend/.env
 
+# Ensure Docker networks are clean
+echo "Cleaning up Docker networks and containers..."
+docker-compose -f docker-compose.test.yml down
+docker network prune -f
+
 # Build and start containers
 echo "Building and starting containers..."
-docker-compose -f docker-compose.test.yml down
 docker-compose -f docker-compose.test.yml build
 docker-compose -f docker-compose.test.yml up -d
 
-# Wait for containers to start
-echo "Waiting for containers to start..."
-sleep 10
+# Wait for containers to start and become healthy
+echo "Waiting for containers to start and become healthy..."
+sleep 30
+
+# Verify MySQL connection from backend container
+echo "Verifying MySQL connection..."
+docker-compose -f docker-compose.test.yml exec backend bash -c "ping -c 3 mysql"
+docker-compose -f docker-compose.test.yml exec backend bash -c "php -r \"try { new PDO('mysql:host=mysql;dbname=banhang_test', 'root', 'root'); echo 'MySQL connection successful!\n'; } catch (PDOException \\\$e) { echo 'MySQL connection failed: ' . \\\$e->getMessage() . \"\n\"; }\""
 
 # Generate Laravel application key
 echo "Generating Laravel application key..."
@@ -56,6 +65,10 @@ docker-compose -f docker-compose.test.yml exec backend php artisan storage:link
 echo "Optimizing Laravel application..."
 docker-compose -f docker-compose.test.yml exec backend php artisan config:cache
 docker-compose -f docker-compose.test.yml exec backend php artisan route:cache
+
+# Restart backend to make sure all configurations are applied
+echo "Restarting backend service..."
+docker-compose -f docker-compose.test.yml restart backend
 
 echo "Test environment deployed successfully!"
 echo "Access the application at https://test.banhang.ai"

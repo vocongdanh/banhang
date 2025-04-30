@@ -15,6 +15,8 @@ services:
       - backend
       - frontend
     restart: always
+    networks:
+      - banhang_test_network
 
   # Laravel Backend
   backend:
@@ -28,14 +30,18 @@ services:
       - /var/www/html/vendor
       - /var/www/html/node_modules
     depends_on:
-      - mysql
-      - redis
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       - APP_ENV=testing
       - APP_DEBUG=true
       - APP_URL=https://test.banhang.ai
     restart: always
     command: php artisan serve --host=0.0.0.0 --port=8001
+    networks:
+      - banhang_test_network
 
   # Next.js Frontend
   frontend:
@@ -52,6 +58,8 @@ services:
       - backend
     restart: always
     command: sh -c "npm run build && npm start"
+    networks:
+      - banhang_test_network
 
   # Python AI Service
   python-service:
@@ -67,6 +75,8 @@ services:
       - qdrant
       - redis
     restart: always
+    networks:
+      - banhang_test_network
 
   # Qdrant Vector Store
   qdrant:
@@ -76,6 +86,8 @@ services:
     volumes:
       - qdrant_test_data:/qdrant/storage
     restart: always
+    networks:
+      - banhang_test_network
 
   # MySQL Database
   mysql:
@@ -88,6 +100,14 @@ services:
     volumes:
       - mysql_test_data:/var/lib/mysql
     restart: always
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - banhang_test_network
 
   # Redis Cache
   redis:
@@ -97,6 +117,13 @@ services:
     volumes:
       - redis_test_data:/data
     restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - banhang_test_network
 
   # PhpMyAdmin for database management
   phpmyadmin:
@@ -108,8 +135,14 @@ services:
       - MYSQL_ROOT_PASSWORD=root
     depends_on:
       - mysql
+    networks:
+      - banhang_test_network
 
 volumes:
   qdrant_test_data:
   mysql_test_data:
-  redis_test_data: 
+  redis_test_data:
+
+networks:
+  banhang_test_network:
+    driver: bridge 
