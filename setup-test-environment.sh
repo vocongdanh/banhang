@@ -1,80 +1,76 @@
 #!/bin/bash
 
-# Script to setup test environment with Certbot SSL certificates
-# Usage: ./setup-test-environment.sh yourdomain.com email@example.com
+# Colors for output
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+NC='\033[0m' # No Color
 
-# Check if domain name is provided
-if [ -z "$1" ]; then
-    echo "Error: Domain name is required"
-    echo "Usage: ./setup-test-environment.sh yourdomain.com email@example.com"
-    exit 1
+echo -e "${GREEN}=== Setting up Test Environment for banhang.ai ===${NC}"
+
+# Check if running as root or with sudo
+if [ "$EUID" -ne 0 ]; then
+  echo -e "${YELLOW}Please run as root or with sudo${NC}"
+  exit 1
 fi
 
-# Check if email is provided
-if [ -z "$2" ]; then
-    echo "Error: Email is required for Let's Encrypt"
-    echo "Usage: ./setup-test-environment.sh yourdomain.com email@example.com"
-    exit 1
-fi
-
-DOMAIN=$1
-EMAIL=$2
-TEST_DOMAIN="test.$DOMAIN"
-
-echo "Setting up test environment for $TEST_DOMAIN..."
-
-# Create directories for Certbot
-mkdir -p data/certbot/conf
-mkdir -p data/certbot/www
-
-# Create directories for Nginx logs
+# Create necessary directories
+mkdir -p data/certbot/conf data/certbot/www
 mkdir -p nginx/logs
-
-# Create dummy certificates for initial Nginx startup
 mkdir -p nginx/ssl
-openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-    -keyout nginx/ssl/$TEST_DOMAIN.key \
-    -out nginx/ssl/$TEST_DOMAIN.crt \
-    -subj "/C=VN/ST=HoChiMinh/L=HoChiMinh/O=BanHang/OU=IT/CN=$TEST_DOMAIN"
 
-# Update environment variables
-sed -i '' "s/APP_URL=.*/APP_URL=https:\/\/$TEST_DOMAIN/" env.test
-sed -i '' "s/FACEBOOK_REDIRECT_URI=.*/FACEBOOK_REDIRECT_URI=https:\/\/$TEST_DOMAIN\/oauth\/facebook\/callback/" env.test
-sed -i '' "s/GOOGLE_REDIRECT_URI=.*/GOOGLE_REDIRECT_URI=https:\/\/$TEST_DOMAIN\/oauth\/google\/callback/" env.test
+# Create SSL directory for Cloudflare certificates
+echo -e "${YELLOW}Setting up SSL certificates...${NC}"
 
-# Update frontend environment
-cat > env.frontend.test << EOF
-NEXT_PUBLIC_API_URL=https://$TEST_DOMAIN/api
-NEXT_PUBLIC_BACKEND_URL=https://$TEST_DOMAIN
-NEXT_PUBLIC_APP_ENV=testing
-EOF
+# Check if SSL certs already exist, otherwise create placeholders
+if [ ! -f "nginx/ssl/test.banhang.ai.pem" ] || [ ! -f "nginx/ssl/test.banhang.ai.key" ]; then
+  echo -e "${YELLOW}Please place your Cloudflare Origin SSL certificates in the nginx/ssl directory:${NC}"
+  echo -e "${YELLOW}- nginx/ssl/test.banhang.ai.pem (certificate)${NC}"
+  echo -e "${YELLOW}- nginx/ssl/test.banhang.ai.key (private key)${NC}"
+  
+  # Create empty files as placeholders
+  touch nginx/ssl/test.banhang.ai.pem
+  touch nginx/ssl/test.banhang.ai.key
+  
+  read -p "Press any key to continue once you've added your certificates..." -n1 -s
+  echo ""
+fi
 
-# Update Nginx configuration
-sed -i '' "s/server_name .*/server_name $TEST_DOMAIN;/g" nginx/conf.d/test.conf
+# Generate Laravel App Key if not set
+if grep -q "base64:YOUR_KEY_HERE" env.test; then
+  echo -e "${YELLOW}Generating Laravel App Key...${NC}"
+  # Generate a random key
+  APP_KEY=$(openssl rand -base64 32)
+  # Replace placeholder with the new key
+  sed -i "s|APP_KEY=base64:YOUR_KEY_HERE|APP_KEY=base64:$APP_KEY|" env.test
+fi
 
-# Deploy with docker-compose
-echo "Starting containers with dummy SSL..."
+echo -e "${GREEN}Starting Docker Compose services...${NC}"
 docker-compose -f docker-compose.test.yml down
 docker-compose -f docker-compose.test.yml up -d
 
-echo "Waiting for Nginx to start..."
+echo -e "${YELLOW}Waiting for services to start up...${NC}"
 sleep 10
 
-# Request real certificates from Let's Encrypt
-echo "Requesting Let's Encrypt certificates for $TEST_DOMAIN..."
-docker-compose -f docker-compose.test.yml run --rm certbot certonly \
-    --webroot \
-    --webroot-path=/var/www/certbot \
-    --email $EMAIL \
-    --agree-tos \
-    --no-eff-email \
-    --force-renewal \
-    -d $TEST_DOMAIN
+echo -e "${GREEN}Setting up Laravel backend...${NC}"
+docker-compose -f docker-compose.test.yml exec backend composer install
+docker-compose -f docker-compose.test.yml exec backend php artisan key:generate --force
+docker-compose -f docker-compose.test.yml exec backend php artisan migrate:fresh --seed --force
+docker-compose -f docker-compose.test.yml exec backend php artisan storage:link
+docker-compose -f docker-compose.test.yml exec backend php artisan config:cache
+docker-compose -f docker-compose.test.yml exec backend php artisan route:cache
+docker-compose -f docker-compose.test.yml exec backend php artisan optimize
 
-# Reload Nginx to use the new certificates
-echo "Reloading Nginx to use the new certificates..."
-docker-compose -f docker-compose.test.yml exec nginx nginx -s reload
+echo -e "${GREEN}=== Test Environment Setup Complete ===${NC}"
+echo -e "${GREEN}Your test environment is now available at:${NC}"
+echo -e "${YELLOW}https://test.banhang.ai${NC}"
+echo -e "${GREEN}PhpMyAdmin:${NC} ${YELLOW}https://test.banhang.ai/phpmyadmin${NC}"
+echo ""
+echo -e "${RED}IMPORTANT:${NC}"
+echo -e "- Make sure your DNS points to this server"
+echo -e "- Update OAuth credentials in env.test and env.frontend.test files"
+echo -e "- Add your SSL certificates to nginx/ssl/ directory"
 
-echo "Test environment setup completed for $TEST_DOMAIN."
-echo "Visit https://$TEST_DOMAIN to access your application."
-echo "Make sure to update your DNS settings to point $TEST_DOMAIN to your server IP." 
+# Display Docker container status
+echo -e "${GREEN}Current Docker container status:${NC}"
+docker-compose -f docker-compose.test.yml ps 

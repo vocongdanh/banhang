@@ -1,4 +1,6 @@
-FROM php:8.2-fpm
+FROM php:8.1-fpm
+
+WORKDIR /var/www/html
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -9,45 +11,33 @@ RUN apt-get update && apt-get install -y \
     libxml2-dev \
     zip \
     unzip \
-    libzip-dev
-
-# Clear cache
-RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+    libzip-dev \
+    default-mysql-client \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install PHP extensions
 RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip
 
-# Install Redis extension
-RUN pecl install redis && docker-php-ext-enable redis
-
-# Get latest Composer
+# Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Set working directory
-WORKDIR /var/www/html
+# Set up non-root user
+RUN groupadd -g 1000 www && \
+    useradd -u 1000 -g www -m www
 
-# Copy composer.json and composer.lock
-COPY composer.json composer.lock ./
+# Copy files & set permissions
+COPY . /var/www/html/
+RUN chown -R www:www /var/www/html
+USER www
 
 # Install dependencies
-RUN composer install --prefer-dist --no-scripts --no-dev --no-autoloader
+RUN composer install --optimize-autoloader --no-dev
 
-# Copy existing application directory
-COPY . .
+# Optimize Laravel
+RUN php artisan optimize
 
-# Run composer dump-autoload
-RUN composer dump-autoload --no-dev --optimize
-
-# Set permissions
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
-RUN chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
-
-# Set PHP-FPM configuration
-COPY docker/php/www.conf /usr/local/etc/php-fpm.d/www.conf
-COPY docker/php/custom.ini /usr/local/etc/php/conf.d/custom.ini
-
-# Expose port 9000 for PHP-FPM
+# Expose port 9000
 EXPOSE 9000
 
-# Start PHP-FPM
 CMD ["php-fpm"] 

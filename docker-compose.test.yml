@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # Nginx Reverse Proxy
+  # Nginx Web Server
   nginx:
     image: nginx:alpine
     ports:
@@ -19,16 +19,7 @@ services:
     restart: always
     networks:
       - banhang_test_network
-    command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
-
-  # Certbot service for SSL certificates
-  certbot:
-    image: certbot/certbot
-    volumes:
-      - ./data/certbot/conf:/etc/letsencrypt
-      - ./data/certbot/www:/var/www/certbot
-    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
-
+  
   # Laravel Backend
   backend:
     build:
@@ -38,22 +29,17 @@ services:
       - "9000"
     volumes:
       - ./backend:/var/www/html
-      - /var/www/html/vendor
-      - /var/www/html/node_modules
+      - ./env.test:/var/www/html/.env
     depends_on:
-      mysql:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - mysql
+      - redis
+    restart: always
+    networks:
+      - banhang_test_network
     environment:
       - APP_ENV=testing
       - APP_DEBUG=true
-      - APP_URL=https://test.banhang.ai
-    restart: always
-    command: sh -c "php-fpm"
-    networks:
-      - banhang_test_network
-
+  
   # Next.js Frontend
   frontend:
     build:
@@ -69,96 +55,74 @@ services:
     depends_on:
       - backend
     restart: always
-    command: sh -c "cp /app/.env /app/.env.production && rm -f /app/.env.local && npm run build && npx next start"
     networks:
       - banhang_test_network
     environment:
       - NEXT_PUBLIC_API_URL=https://test.banhang.ai/api
       - NEXT_PUBLIC_BACKEND_URL=https://test.banhang.ai
       - NEXT_PUBLIC_APP_ENV=testing
-
-  # Python AI Service
-  python-service:
-    build:
-      context: ./ai-service
-      dockerfile: Dockerfile
-    expose:
-      - "5000"
-    volumes:
-      - ./ai-service:/app
-      - /app/venv
-    depends_on:
-      - qdrant
-      - redis
-    restart: always
-    networks:
-      - banhang_test_network
-
-  # Qdrant Vector Store
-  qdrant:
-    image: qdrant/qdrant
-    expose:
-      - "6333"
-    volumes:
-      - qdrant_test_data:/qdrant/storage
-    restart: always
-    networks:
-      - banhang_test_network
-
+  
   # MySQL Database
   mysql:
-    image: mariadb:10.6
-    expose:
-      - "3306"
-    environment:
-      - MYSQL_ROOT_PASSWORD=root
-      - MYSQL_DATABASE=banhang_test
-    volumes:
-      - mysql_test_data:/var/lib/mysql
+    image: mysql:8.0
+    container_name: banhang_mysql
     restart: always
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_DATABASE: banhang_test
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_USER: banhang
+      MYSQL_PASSWORD: banhang
+    volumes:
+      - mysql_data:/var/lib/mysql
     networks:
       - banhang_test_network
-
+  
   # Redis Cache
   redis:
     image: redis:alpine
-    expose:
-      - "6379"
-    volumes:
-      - redis_test_data:/data
     restart: always
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
     networks:
       - banhang_test_network
-
-  # PhpMyAdmin for database management
+  
+  # phpMyAdmin for MySQL management
   phpmyadmin:
     image: phpmyadmin/phpmyadmin
-    expose:
-      - "80"
+    container_name: banhang_phpmyadmin
+    restart: always
+    ports:
+      - "8080:80"
     environment:
-      - PMA_HOST=mysql
-      - MYSQL_ROOT_PASSWORD=root
+      PMA_HOST: mysql
+      MYSQL_ROOT_PASSWORD: root
     depends_on:
       - mysql
     networks:
       - banhang_test_network
+  
+  # Qdrant Vector Database
+  qdrant:
+    image: qdrant/qdrant
+    restart: always
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - banhang_test_network
 
-volumes:
-  qdrant_test_data:
-  mysql_test_data:
-  redis_test_data:
-
+# Define networks
 networks:
   banhang_test_network:
-    driver: bridge 
+    driver: bridge
+
+# Define volumes
+volumes:
+  mysql_data:
+  redis_data:
+  qdrant_data: 
