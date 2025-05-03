@@ -642,4 +642,52 @@ class VectorStoreService
             ];
         }
     }
+    
+    /**
+     * Create a new vector store collection
+     * 
+     * @param string $collectionName The name for the new collection
+     * @return array|null Collection data or null on failure
+     */
+    public function createCollection($collectionName)
+    {
+        try {
+            // If we're using OpenAI's vector store
+            if (env('APP_ENV') === 'production') {
+                // Create a new vector store in OpenAI
+                $response = Http::withHeaders([
+                    'Authorization' => "Bearer {$this->openaiApiKey}",
+                    'Content-Type' => 'application/json',
+                ])->post('https://api.openai.com/v1/vector_stores', [
+                    'name' => $collectionName,
+                    'description' => "Vector store for {$collectionName}",
+                ]);
+                
+                if (!$response->successful()) {
+                    Log::error('OpenAI Vector Store Creation API error', [
+                        'status' => $response->status(),
+                        'body' => $response->body(),
+                    ]);
+                    throw new \Exception("OpenAI Vector Store API error: " . $response->body());
+                }
+                
+                return $response->json();
+            }
+            
+            // For development/testing, return a mock collection
+            return [
+                'id' => 'vs_' . uniqid(),
+                'name' => $collectionName,
+                'created_at' => now()->toIso8601String(),
+            ];
+        } catch (\Exception $e) {
+            Log::error('Vector Store Collection Creation Error', [
+                'collection_name' => $collectionName,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return null;
+        }
+    }
 } 

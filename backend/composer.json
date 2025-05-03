@@ -7,8 +7,10 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
+        "facebook/php-business-sdk": "^22.0",
         "laravel/framework": "^12.0",
         "laravel/sanctum": "^4.1",
+        "laravel/socialite": "^5.20",
         "laravel/tinker": "^2.10.1",
         "openai-php/client": "^0.10.3",
         "openai-php/laravel": "^0.11.0",

@@ -4,15 +4,27 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\FileController;
 use App\Http\Controllers\ImportController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\AIAgentController;
 use App\Http\Controllers\AIConversationController;
 use App\Http\Controllers\AIMessageController;
+use App\Http\Controllers\FacebookController;
 
 Route::post('/login', [AuthenticatedSessionController::class, 'store'])->name('login');
 Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout')->middleware('auth:sanctum');
+
+// Registration routes
+Route::post('/register', [RegisterController::class, 'register'])->name('register');
+Route::post('/register/complete-oauth', [RegisterController::class, 'completeOAuthRegistration'])->name('register.complete-oauth');
+
+// OAuth routes
+Route::get('/auth/facebook/redirect', [RegisterController::class, 'redirectToFacebook'])->name('auth.facebook.redirect');
+Route::get('/auth/facebook/callback', [RegisterController::class, 'handleFacebookCallback'])->name('auth.facebook.callback');
+Route::get('/auth/google/redirect', [RegisterController::class, 'redirectToGoogle'])->name('auth.google.redirect');
+Route::get('/auth/google/callback', [RegisterController::class, 'handleGoogleCallback'])->name('auth.google.callback');
 
 // Debug route to check token
 Route::get('/check-auth', function (Request $request) {
@@ -76,7 +88,21 @@ Route::middleware(['auth:sanctum'])->group(function () {
     
     // Data import route
     Route::post('/import', [ImportController::class, 'import']);
+    
+    // Facebook integration routes
+    Route::get('/facebook/login-url', [FacebookController::class, 'getLoginUrl']);
+    Route::get('/facebook/status', [FacebookController::class, 'getStatus']);
+    Route::get('/facebook/messenger', [FacebookController::class, 'getMessengerConversations']);
+    Route::get('/facebook/posts', [FacebookController::class, 'getPosts']);
+    Route::get('/facebook/audience', [FacebookController::class, 'getAudienceInsights']);
+    Route::get('/facebook/analytics', [FacebookController::class, 'getAnalytics']);
+    Route::get('/facebook/ads', [FacebookController::class, 'getAdsData']);
+    Route::post('/facebook/disconnect', [FacebookController::class, 'disconnect']);
+    Route::post('/facebook/sync-to-vector', [FacebookController::class, 'syncToVectorStore']);
 });
+
+// Facebook OAuth callback (public route)
+Route::get('/facebook/callback', [FacebookController::class, 'handleCallback']);
 
 // Public routes that don't require authentication
 Route::get('/test', function () {

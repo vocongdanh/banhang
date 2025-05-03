@@ -5,6 +5,7 @@ frontend/node_modules/
 backend/node_modules/
 frontend/node_modules/@next/swc-darwin-x64/next-swc.darwin-x64.node
 
+mobile_app/
 # Build directories
 /dist
 /build

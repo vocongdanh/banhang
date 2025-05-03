@@ -178,6 +178,35 @@ export default function DataPage() {
                   </Button>
                 </CardFooter>
               </Card>
+
+              {/* Facebook */}
+              <Card>
+                <CardHeader className="flex flex-row items-center gap-4">
+                  <div className="bg-blue-600/10 p-3 rounded-full">
+                    <svg className="h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path>
+                    </svg>
+                  </div>
+                  <div>
+                    <CardTitle>Facebook</CardTitle>
+                    <CardDescription>
+                      Kết nối Facebook và Messenger
+                    </CardDescription>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
+                    Phân tích tin nhắn Messenger, bài đăng và quảng cáo Facebook để tìm hiểu khách hàng.
+                  </p>
+                </CardContent>
+                <CardFooter>
+                  <Button asChild className="w-full">
+                    <Link href="/data/facebook">
+                      Kết nối
+                    </Link>
+                  </Button>
+                </CardFooter>
+              </Card>
             </div>
           </TabsContent>
           

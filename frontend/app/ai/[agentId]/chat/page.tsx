@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, memo } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { AppShell } from "@/components/layout/app-shell"
 import { Button } from "@/components/ui/button"
@@ -20,6 +20,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { tomorrow } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import type { Components } from 'react-markdown'
 import type { PrismAsyncLight as SyntaxHighlighterType } from 'react-syntax-highlighter'
+import dynamic from 'next/dynamic'
 
 interface CodeProps {
   inline?: boolean
@@ -121,17 +122,162 @@ const markdownComponents: Components = {
   td: ({ children }) => <td className={markdownStyles.td}>{children}</td>,
 };
 
-// Component wrapper cho ReactMarkdown
-const MarkdownContent = ({ content }: { content: string }) => (
-  <div className="markdown-content">
-    <ReactMarkdown 
-      remarkPlugins={[remarkGfm]}
-      components={markdownComponents}
-    >
-      {content}
-    </ReactMarkdown>
-  </div>
+// Đưa việc dynamic import ra bên ngoài component
+const MarkdownChartExtractor = dynamic(
+  () => import('@/components/chart/MarkdownChartExtractor'),
+  { 
+    ssr: false,
+    loading: () => <div className="p-4 text-gray-500">Đang tải biểu đồ...</div>
+  }
 );
+
+// Tạo một component riêng biệt cho tin nhắn và sử dụng memo để tránh re-render
+const MessageContent = memo(({ content }: { content: string }) => {
+  return <MarkdownContent content={content} />;
+});
+
+MessageContent.displayName = 'MessageContent';
+
+// Component wrapper cho ReactMarkdown
+const MarkdownContent = ({ content }: { content: string }) => {
+  // Kiểm tra xem nội dung có chứa biểu đồ không
+  const hasMermaidOrChart = /```(mermaid|chart)\n/g.test(content);
+
+  // Nếu có biểu đồ, sử dụng MarkdownChartExtractor
+  if (hasMermaidOrChart) {
+    return (
+      <div className="markdown-content w-full overflow-hidden">
+        <MarkdownChartExtractor 
+          content={content} 
+          markdownComponents={markdownComponents} 
+        />
+      </div>
+    );
+  }
+  
+  // Nếu không có biểu đồ, sử dụng ReactMarkdown thông thường
+  return (
+    <div className="markdown-content w-full overflow-hidden">
+      <ReactMarkdown 
+        remarkPlugins={[remarkGfm]}
+        components={markdownComponents}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  );
+};
+
+// Tạo component MessageInput riêng biệt với memo
+const MessageInput = memo(({ 
+  inputMessage,
+  setInputMessage,
+  handleKeyDown,
+  sendMessage,
+  handleFileClick,
+  isSending,
+  isLoading,
+  files,
+  agent,
+  fileInputRef,
+  handleFileChange
+}: { 
+  inputMessage: string;
+  setInputMessage: (value: string) => void;
+  handleKeyDown: (e: React.KeyboardEvent) => void;
+  sendMessage: () => void;
+  handleFileClick: () => void;
+  isSending: boolean;
+  isLoading: boolean;
+  files: File[];
+  agent: Agent | null;
+  fileInputRef: React.RefObject<HTMLInputElement>;
+  handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}) => {
+  return (
+    <div className="border-t p-2 md:p-4">
+      <div className="relative flex">
+        <input 
+          type="file" 
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          className="hidden"
+          multiple
+        />
+        
+        <Input
+          placeholder="Type a message..."
+          value={inputMessage}
+          onChange={(e) => setInputMessage(e.target.value)}
+          onKeyDown={handleKeyDown}
+          disabled={isSending || isLoading}
+          className="pr-20 md:pr-24 text-sm md:text-base"
+        />
+        
+        <div className="absolute right-1 top-1 flex items-center gap-1">
+          {agent?.capabilities?.includes('image_upload') && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    type="button" 
+                    size="icon" 
+                    variant="ghost" 
+                    className="h-7 w-7 md:h-8 md:w-8"
+                    onClick={handleFileClick}
+                    disabled={isSending}
+                  >
+                    <ImageIcon className="h-3 w-3 md:h-4 md:w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Upload images</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          
+          {agent?.capabilities?.includes('voice') && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    type="button" 
+                    size="icon" 
+                    variant="ghost" 
+                    className="h-7 w-7 md:h-8 md:w-8"
+                    disabled={true} // Voice feature not yet implemented
+                  >
+                    <MicIcon className="h-3 w-3 md:h-4 md:w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Voice message (coming soon)</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          
+          <Button 
+            type="button" 
+            size="icon" 
+            className="h-7 w-7 md:h-8 md:w-8"
+            onClick={sendMessage}
+            disabled={isSending || (inputMessage.trim() === '' && files.length === 0)}
+          >
+            {isSending ? (
+              <Loader2Icon className="h-3 w-3 md:h-4 md:w-4 animate-spin" />
+            ) : (
+              <SendIcon className="h-3 w-3 md:h-4 md:w-4" />
+            )}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+MessageInput.displayName = 'MessageInput';
 
 export default function ChatPage() {
   const params = useParams()
@@ -875,7 +1021,7 @@ export default function ChatPage() {
                   key={message.id} 
                   className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
-                  <div className={`flex gap-2 md:gap-3 max-w-[85%] md:max-w-[80%] ${message.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                  <div className={`flex gap-2 md:gap-3 w-fit max-w-[85%] md:max-w-[80%] ${message.role === 'user' ? 'flex-row-reverse' : ''}`}>
                     <Avatar className="h-6 w-6 md:h-8 md:w-8 flex-shrink-0 mt-1">
                       {message.role === 'user' ? (
                         <AvatarFallback>Me</AvatarFallback>
@@ -896,7 +1042,7 @@ export default function ChatPage() {
                         <CardContent className="p-2 md:p-3 text-sm">
                           {message.loading ? (
                             <div>
-                              <MarkdownContent content={message.content} />
+                              <MessageContent content={message.content} />
                               <div className="mt-1 flex">
                                 <div className="typing-indicator">
                                   <span></span>
@@ -906,7 +1052,7 @@ export default function ChatPage() {
                               </div>
                             </div>
                           ) : (
-                            <MarkdownContent content={message.content} />
+                            <MessageContent content={message.content} />
                           )}
                           
                           {/* Display files if any */}
@@ -964,88 +1110,19 @@ export default function ChatPage() {
         )}
         
         {/* Message input */}
-        <div className="border-t p-2 md:p-4">
-          <div className="relative flex">
-            <input 
-              type="file" 
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              className="hidden"
-              multiple
-            />
-            
-            <Input
-              placeholder="Type a message..."
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              onKeyDown={handleKeyDown}
-              disabled={isSending || isLoading}
-              className="pr-20 md:pr-24 text-sm md:text-base"
-            />
-            
-            <div className="absolute right-1 top-1 flex items-center gap-1">
-              {agent?.capabilities?.includes('image_upload') && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button 
-                        type="button" 
-                        size="icon" 
-                        variant="ghost" 
-                        className="h-7 w-7 md:h-8 md:w-8"
-                        onClick={handleFileClick}
-                        disabled={isSending}
-                      >
-                        <ImageIcon className="h-3 w-3 md:h-4 md:w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Upload images</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-              
-              {agent?.capabilities?.includes('voice') && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button 
-                        type="button" 
-                        size="icon" 
-                        variant="ghost" 
-                        className="h-7 w-7 md:h-8 md:w-8"
-                        disabled={true} // Voice feature not yet implemented
-                      >
-                        <MicIcon className="h-3 w-3 md:h-4 md:w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Voice message (coming soon)</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-              
-              <Button 
-                type="button" 
-                size="icon" 
-                className="h-7 w-7 md:h-8 md:w-8"
-                onClick={() => {
-                  console.log("Send button clicked");
-                  sendMessage();
-                }}
-                disabled={isSending || (inputMessage.trim() === '' && files.length === 0)}
-              >
-                {isSending ? (
-                  <Loader2Icon className="h-3 w-3 md:h-4 md:w-4 animate-spin" />
-                ) : (
-                  <SendIcon className="h-3 w-3 md:h-4 md:w-4" />
-                )}
-              </Button>
-            </div>
-          </div>
-        </div>
+        <MessageInput 
+          inputMessage={inputMessage}
+          setInputMessage={setInputMessage}
+          handleKeyDown={handleKeyDown}
+          sendMessage={sendMessage}
+          handleFileClick={handleFileClick}
+          isSending={isSending}
+          isLoading={isLoading}
+          files={files}
+          agent={agent}
+          fileInputRef={fileInputRef}
+          handleFileChange={handleFileChange}
+        />
       </div>
     </AppShell>
   )
