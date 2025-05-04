@@ -50,8 +50,6 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
-      - /app/.next
-      - ./env.frontend.test:/app/.env
     depends_on:
       - backend
     restart: always
@@ -61,10 +59,15 @@ services:
       - NEXT_PUBLIC_API_URL=https://test.banhang.ai/api
       - NEXT_PUBLIC_BACKEND_URL=https://test.banhang.ai
       - NEXT_PUBLIC_APP_ENV=testing
+    command: >
+      sh -c "cp /www/banhang/env.frontend.test /www/banhang/frontend/.env &&
+             npm install &&
+             npm run build &&
+             npx next start"
   
-  # MySQL Database
+  # MariaDB Database (replacing MySQL for better compatibility)
   mysql:
-    image: mysql:8.0
+    image: mariadb:10.6
     container_name: banhang_mysql
     restart: always
     ports:
