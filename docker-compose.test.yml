@@ -33,14 +33,18 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
-      - /app/.next
+    command: sh -c "cd /app && npm install && npm run dev"
+    environment:
+      - NODE_ENV=development
     env_file:
       - env.frontend.test
+    ports:
+      - "3000:3000"
     depends_on:
       - backend
     networks:
       - banhang_test_network
-    restart: unless-stopped
+    restart: "no"
 
   # Nginx service
   nginx:
