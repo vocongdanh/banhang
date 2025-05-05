@@ -1,131 +1,142 @@
 version: '3.8'
 
 services:
-  # Nginx Web Server
+  # Backend service (Laravel)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.test
+    container_name: banhang_backend_test
+    volumes:
+      - ./backend:/var/www/html
+      - ./backend/storage/logs:/var/www/html/storage/logs
+      - ./backend/storage/app:/var/www/html/storage/app
+    environment:
+      - APP_ENV=test
+      - APP_DEBUG=false
+    env_file:
+      - .env.test
+    depends_on:
+      - mariadb
+      - redis
+      - qdrant
+    networks:
+      - banhang_test_network
+    restart: unless-stopped
+
+  # Frontend service (Next.js)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.test
+    container_name: banhang_frontend_test
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    env_file:
+      - env.frontend.test
+    depends_on:
+      - backend
+    networks:
+      - banhang_test_network
+    restart: unless-stopped
+
+  # Nginx service
   nginx:
     image: nginx:alpine
+    container_name: banhang_nginx_test
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - ./nginx/conf.d:/etc/nginx/conf.d
       - ./nginx/ssl:/etc/nginx/ssl
-      - ./nginx/logs:/var/log/nginx
-      - ./data/certbot/conf:/etc/letsencrypt
-      - ./data/certbot/www:/var/www/certbot
+      - ./backend/public:/var/www/html/public
+      - ./backend/storage/app/public:/var/www/html/storage/app/public
+      - ./certbot/www:/var/www/certbot
+      - ./certbot/conf:/etc/letsencrypt
     depends_on:
       - backend
       - frontend
-    restart: always
+      - phpmyadmin
     networks:
       - banhang_test_network
-  
-  # Laravel Backend
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.test
-    expose:
-      - "9000"
-    volumes:
-      - ./backend:/var/www/html
-      - ./env.test:/var/www/html/.env
-    depends_on:
-      - mysql
-      - redis
-    restart: always
-    networks:
-      - banhang_test_network
-    environment:
-      - APP_ENV=testing
-      - APP_DEBUG=true
-  
-  # Next.js Frontend
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    expose:
-      - "3000"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    depends_on:
-      - backend
-    restart: always
-    networks:
-      - banhang_test_network
-    environment:
-      - NEXT_PUBLIC_API_URL=https://test.banhang.ai/api
-      - NEXT_PUBLIC_BACKEND_URL=https://test.banhang.ai
-      - NEXT_PUBLIC_APP_ENV=testing
-    command: >
-      sh -c "cp /www/banhang/env.frontend.test /www/banhang/frontend/.env &&
-             npm install &&
-             npm run build &&
-             npx next start"
-  
-  # MariaDB Database (replacing MySQL for better compatibility)
-  mysql:
+    restart: unless-stopped
+
+  # MariaDB instead of MySQL
+  mariadb:
     image: mariadb:10.6
-    container_name: banhang_mysql
-    restart: always
-    ports:
-      - "3306:3306"
+    container_name: banhang_mariadb_test
+    volumes:
+      - mariadb_test_data:/var/lib/mysql
+      - ./mariadb/initdb.d:/docker-entrypoint-initdb.d
     environment:
-      MYSQL_DATABASE: banhang_test
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_USER: banhang
-      MYSQL_PASSWORD: banhang
-    volumes:
-      - mysql_data:/var/lib/mysql
+      - MYSQL_DATABASE=${DB_DATABASE}
+      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
+      - MYSQL_USER=${DB_USERNAME}
+      - MYSQL_PASSWORD=${DB_PASSWORD}
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     networks:
       - banhang_test_network
-  
-  # Redis Cache
-  redis:
-    image: redis:alpine
-    restart: always
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    networks:
-      - banhang_test_network
-  
-  # phpMyAdmin for MySQL management
+    restart: unless-stopped
+
+  # PHPMyAdmin for database management
   phpmyadmin:
     image: phpmyadmin/phpmyadmin
-    container_name: banhang_phpmyadmin
-    restart: always
-    ports:
-      - "8080:80"
+    container_name: banhang_phpmyadmin_test
     environment:
-      PMA_HOST: mysql
-      MYSQL_ROOT_PASSWORD: root
+      - PMA_HOST=mariadb
+      - PMA_PORT=3306
+      - UPLOAD_LIMIT=64M
+      - MEMORY_LIMIT=256M
+      - MAX_EXECUTION_TIME=300
+      - PMA_ABSOLUTE_URI=https://test.banhang.ai/phpmyadmin/
     depends_on:
-      - mysql
+      - mariadb
     networks:
       - banhang_test_network
-  
-  # Qdrant Vector Database
+    restart: unless-stopped
+
+  # Redis for caching
+  redis:
+    image: redis:alpine
+    container_name: banhang_redis_test
+    volumes:
+      - redis_test_data:/data
+    networks:
+      - banhang_test_network
+    restart: unless-stopped
+
+  # Qdrant for vector search
   qdrant:
     image: qdrant/qdrant
-    restart: always
+    container_name: banhang_qdrant_test
+    volumes:
+      - qdrant_test_data:/qdrant/storage
     ports:
       - "6333:6333"
-    volumes:
-      - qdrant_data:/qdrant/storage
     networks:
       - banhang_test_network
+    restart: unless-stopped
 
-# Define networks
+  # Certbot for SSL certificates (if needed alongside Cloudflare)
+  certbot:
+    image: certbot/certbot
+    container_name: banhang_certbot_test
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    depends_on:
+      - nginx
+    command: renew
+    entrypoint: /bin/sh -c "trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;"
+
 networks:
   banhang_test_network:
     driver: bridge
 
-# Define volumes
 volumes:
-  mysql_data:
-  redis_data:
-  qdrant_data: 
+  mariadb_test_data:
+  redis_test_data:
+  qdrant_test_data: 

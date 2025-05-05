@@ -15,7 +15,7 @@ interface MarkdownChartExtractorProps {
 export default function MarkdownChartExtractor({ content, markdownComponents = {} }: MarkdownChartExtractorProps) {
   const [mermaidDiagrams, setMermaidDiagrams] = useState<string[]>([]);
   const [chartConfigs, setChartConfigs] = useState<any[]>([]);
-  
+
   // Phân tích nội dung MarkDown để trích xuất mã biểu đồ
   useEffect(() => {
     // Trích xuất mermaid diagrams
@@ -23,7 +23,7 @@ export default function MarkdownChartExtractor({ content, markdownComponents = {
     const mermaidMatches = [...content.matchAll(mermaidRegex)];
     const mermaidDiagrams = mermaidMatches.map(match => match[1]);
     setMermaidDiagrams(mermaidDiagrams);
-    
+
     // Trích xuất chart configs
     const chartRegex = /```chart\n([\s\S]*?)```/g;
     const chartMatches = [...content.matchAll(chartRegex)];
@@ -35,10 +35,10 @@ export default function MarkdownChartExtractor({ content, markdownComponents = {
         return null;
       }
     }).filter(Boolean);
-    
+
     setChartConfigs(chartConfigs);
   }, [content]);
-  
+
   // Xử lý nội dung để hiển thị
   const processedContent = useMemo(() => {
     // Loại bỏ các khối mã Mermaid và Chart từ nội dung
@@ -46,7 +46,7 @@ export default function MarkdownChartExtractor({ content, markdownComponents = {
       .replace(/```mermaid\n[\s\S]*?```/g, '')
       .replace(/```chart\n[\s\S]*?```/g, '');
   }, [content]);
-  
+
   return (
     <div className="markdown-chart-content">
       {/* Hiển thị nội dung Markdown */}
@@ -68,13 +68,13 @@ export default function MarkdownChartExtractor({ content, markdownComponents = {
       {/* Hiển thị các biểu đồ dữ liệu */}
       {chartConfigs.map((config, index) => (
         <div key={`chart-${index}`} className="mt-4 mb-4">
-          <ChartRenderer 
+        <ChartRenderer 
             type={config.type || 'line'} 
             data={config.data} 
             x={config.x || 'x'} 
             y={config.y || 'y'} 
             title={config.title} 
-          />
+        />
         </div>
       ))}
     </div>

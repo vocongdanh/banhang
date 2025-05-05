@@ -1,6 +1,8 @@
-FROM php:8.1-fpm
+FROM php:8.2-fpm
 
-WORKDIR /var/www/html
+# Arguments defined in docker-compose.yml
+ARG user=www-data
+ARG uid=1000
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -12,32 +14,68 @@ RUN apt-get update && apt-get install -y \
     zip \
     unzip \
     libzip-dev \
-    default-mysql-client \
+    libssl-dev \
+    librabbitmq-dev \
+    supervisor \
+    cron \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # Install PHP extensions
-RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip
+RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip soap intl
 
-# Install Composer
+# Install Redis extension
+RUN pecl install redis && docker-php-ext-enable redis
+
+# Get latest Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Set up non-root user
-RUN groupadd -g 1000 www && \
-    useradd -u 1000 -g www -m www
+# Create system user to run Composer and Artisan Commands
+RUN useradd -G www-data,root -u $uid -d /home/$user $user
+RUN mkdir -p /home/$user/.composer && \
+    chown -R $user:$user /home/$user
 
-# Copy files & set permissions
-COPY . /var/www/html/
-RUN chown -R www:www /var/www/html
-USER www
+# Set working directory
+WORKDIR /var/www/html
 
-# Install dependencies
-RUN composer install --optimize-autoloader --no-dev
+# Configure PHP
+COPY php.ini /usr/local/etc/php/conf.d/custom.ini
 
-# Optimize Laravel
-RUN php artisan optimize
+# Setup cron job
+COPY scheduler.cron /etc/cron.d/scheduler
+RUN chmod 0644 /etc/cron.d/scheduler && crontab /etc/cron.d/scheduler
+
+# Setup supervisor
+COPY supervisor.conf /etc/supervisor/conf.d/
+
+# Copy application files
+COPY . /var/www/html
+
+# Set permissions
+RUN chown -R $user:$user /var/www/html \
+    && chmod -R 775 /var/www/html/storage \
+    && chmod -R 775 /var/www/html/bootstrap/cache
+
+# Switch to non-root user
+USER $user
+
+# Install dependencies and optimize for production
+RUN composer install --no-dev --optimize-autoloader
+
+# Generate application key if not already set
+RUN php artisan key:generate --force
+
+# Clear caches
+RUN php artisan config:clear && \
+    php artisan route:clear && \
+    php artisan view:clear && \
+    php artisan cache:clear
+
+# Change back to root to run supervisord
+USER root
 
 # Expose port 9000
 EXPOSE 9000
 
-CMD ["php-fpm"] 
+# Start PHP-FPM server and supervisord
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"] 
