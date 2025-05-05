@@ -33,6 +33,7 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
+      - ./frontend/.next:/app/.next
     command: sh -c "cd /app && npm install && npm run dev"
     environment:
       - NODE_ENV=development
