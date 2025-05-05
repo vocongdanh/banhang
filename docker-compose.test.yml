@@ -96,7 +96,6 @@ services:
       - UPLOAD_LIMIT=64M
       - MEMORY_LIMIT=256M
       - MAX_EXECUTION_TIME=300
-      - PMA_ABSOLUTE_URI=https://test.banhang.ai/phpmyadmin/
     depends_on:
       - mariadb
     networks:
