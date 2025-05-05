@@ -11,11 +11,6 @@ services:
       - ./backend:/var/www/html
       - ./backend/storage/logs:/var/www/html/storage/logs
       - ./backend/storage/app:/var/www/html/storage/app
-    environment:
-      - APP_ENV=test
-      - APP_DEBUG=false
-    env_file:
-      - .env.test
     depends_on:
       - mariadb
       - redis
